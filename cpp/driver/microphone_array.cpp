@@ -134,25 +134,6 @@ void MicrophoneArray::CalculateDelays(float azimutal_angle, float polar_angle,
   for (std::map<float, int>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
     fifos_[it->second].Resize(sample_array[i++]);
   }
-
-#if 0
-  // sorted distances from source position to each microphone
-  for (int c = 0; c < kMicrophoneChannels; c++) {
-    const float distance = std::sqrt(
-        std::pow(micarray_location[c][0] - x, 2.0) +
-        std::pow(micarray_location[c][1] - y, 2.0) + std::pow(z, 2.0));
-    distance_map[distance] = c;
-  }
-
-  // fifo resize for delay compensation
-  float min_distance = distance_map.begin()->first;
-  for (std::map<float, int>::iterator it = distance_map.begin();
-       it != distance_map.end(); ++it) {
-    int delay = std::round((it->first - min_distance) * sampling_frequency_ /
-                           sound_speed_mmseg);
-    fifos_[it->second].Resize(delay);
-  }
-#endif
 }
 
 bool MicrophoneArray::GetGain() {

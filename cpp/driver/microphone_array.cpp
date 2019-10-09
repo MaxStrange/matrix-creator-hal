@@ -103,12 +103,39 @@ void MicrophoneArray::CalculateDelays(float azimutal_angle, float polar_angle,
   }
   //  sound source position
   float x, y, z;
-  x = radial_distance_mm * std::sin(azimutal_angle) * std::cos(polar_angle);
-  y = radial_distance_mm * std::sin(azimutal_angle) * std::sin(polar_angle);
-  z = radial_distance_mm * std::cos(azimutal_angle);
+  x = radial_distance_mm * std::sin(polar_angle) * std::cos(azimutal_angle);
+  y = radial_distance_mm * std::sin(polar_angle) * std::sin(azimutal_angle);
+  z = radial_distance_mm * std::cos(polar_angle);
 
-  std::map<float, int> distance_map;
+  // Sort the time of arrivals for each microphone
+  std::map<float, int> time_map;
+  for (int c = 0; c < kMicrophoneChannels; c++) {
+    const float distance_mm = std::sqrt(
+        std::pow(micarray_location[c][0] - x, 2.0) +
+        std::pow(micarray_location[c][1] - y, 2.0) + std::pow(z, 2.0));
+    float seconds = distance_mm / sound_speed_mmseg;
+    time_map[seconds] = c;
+  }
 
+  // Calculate the number of samples between each microphone
+  std::vector<int> sample_array;
+  float t_first = time_map.begin()->first;
+  for (std::map<float, int>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
+    int nsamples = sampling_frequency_ * (it->first - t_first);
+    sample_array.push_back(nsamples);
+  }
+
+  // Sort the sample_array from most samples to least
+  std::sort(sample_array.begin(), sample_array.end(), std::greater<int>());
+
+  // Resize each FIFO so that the one that is closest to the sound source
+  // has the largest FIFO and the one that is farthest has the smallest
+  int i = 0;
+  for (std::map<float, int>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
+    fifos_[it->second].Resize(sample_array[i++]);
+  }
+
+#if 0
   // sorted distances from source position to each microphone
   for (int c = 0; c < kMicrophoneChannels; c++) {
     const float distance = std::sqrt(
@@ -125,6 +152,7 @@ void MicrophoneArray::CalculateDelays(float azimutal_angle, float polar_angle,
                            sound_speed_mmseg);
     fifos_[it->second].Resize(delay);
   }
+#endif
 }
 
 bool MicrophoneArray::GetGain() {

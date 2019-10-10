@@ -25,6 +25,7 @@
 #include <map>
 #include <string>
 #include <valarray>
+#include <vector>
 
 #include "cpp/driver/creator_memory_map.h"
 #include "cpp/driver/microphone_array.h"
@@ -108,19 +109,23 @@ void MicrophoneArray::CalculateDelays(float azimutal_angle, float polar_angle,
   z = radial_distance_mm * std::cos(polar_angle);
 
   // Sort the time of arrivals for each microphone
-  std::map<float, int> time_map;
+  std::map<float, std::vector<int>> time_map;
   for (int c = 0; c < kMicrophoneChannels; c++) {
     const float distance_mm = std::sqrt(
         std::pow(micarray_location[c][0] - x, 2.0) +
         std::pow(micarray_location[c][1] - y, 2.0) + std::pow(z, 2.0));
     float seconds = distance_mm / sound_speed_mmseg;
-    time_map[seconds] = c;
+    if (time_map.count(seconds) == 0)
+    {
+        time_map[seconds] = std::vector<int>();
+    }
+    time_map[seconds].push_back(c);
   }
 
   // Calculate the number of samples between each microphone
   std::vector<int> sample_array;
   float t_first = time_map.begin()->first;
-  for (std::map<float, int>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
+  for (std::map<float, std::vector<int>>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
     int nsamples = sampling_frequency_ * (it->first - t_first);
     sample_array.push_back(nsamples);
   }
@@ -131,8 +136,12 @@ void MicrophoneArray::CalculateDelays(float azimutal_angle, float polar_angle,
   // Resize each FIFO so that the one that is closest to the sound source
   // has the largest FIFO and the one that is farthest has the smallest
   int i = 0;
-  for (std::map<float, int>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
-    fifos_[it->second].Resize(sample_array[i++]);
+  for (std::map<float, std::vector<int>>::iterator it = time_map.begin(); it != time_map.end(); ++it) {
+    for (auto channel : it->second)
+    {
+        fifos_[channel].Resize(sample_array.at(i));
+    }
+    i++;
   }
 }
 
